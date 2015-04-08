@@ -6,6 +6,9 @@
 * Adapted for use with the Arduino/AVR by KTOWN (Kevin Townsend)
 * & Limor Fried for Adafruit Industries
 * This library works with the Adafruit CC3000 breakout
+* 
+* Adapted for use with fossa network library be Cesanta (www.cesanta.com)
+*
 *	----> https://www.adafruit.com/products/1469
 * Adafruit invests time and resources providing this open source code,
 * please support Adafruit and open-source hardware by purchasing
@@ -64,6 +67,26 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* FOSSA required additional constants & typedefs */
+#define SOCKET_ERROR (-1)
+#define INVALID_SOCKET (-1)
+#define EWOULDBLOCK SOC_IN_PROGRESS
+#define EAGAIN SOC_IN_PROGRESS
+#define EINPROGRESS SOC_IN_PROGRESS
+#define EINVAL 10022
+#define EINTR (-1) /* not supported */
+#define SOMAXCONN 0
+#define SO_REUSEADDR -1  /* not supported */
+#define SO_ERROR 3
+#define F_SETFL 1
+#define O_NONBLOCK 1
+#define F_GETFL 2
+#define F_SETFD -1
+#define FD_CLOEXEC -1
+
+typedef INT32 sock_t;
+
 
 #define HOSTNAME_MAX_LENGTH \
   (230)  // 230 bytes + header shouldn't exceed 8 bit value
@@ -124,21 +147,33 @@ extern "C" {
 
 #define NO_QUERY_RECIVED -3
 
-typedef struct _in_addr_t {
+/*
+ * FOSSA: in_addr, sockaddr, sockaddr_in should be
+ * structs, not typedefs 
+ */
+struct in_addr {
   UINT32 s_addr;  // load with inet_aton()
-} in_addr;
+};
 
-typedef struct _sockaddr_t {
+struct sockaddr {
   UINT16 sa_family;
   UINT8 sa_data[14];
-} sockaddr;
+};
 
-typedef struct _sockaddr_in_t {
+struct sockaddr_in {
   INT16 sin_family;  // e.g. AF_INET
   UINT16 sin_port;   // e.g. htons(3490)
   in_addr sin_addr;  // see struct in_addr, below
   CHAR sin_zero[8];  // zero this if you want to
-} sockaddr_in;
+};
+
+struct hostent {
+ /*
+  * 1. only one ip address is supported
+  * 2. fossa uses only one field, so, gethostbyname fills only it
+  */
+ char* h_addr_list[1][sizeof(uint32_t)];
+};
 
 typedef UINT32 socklen_t;
 
@@ -384,8 +419,15 @@ extern INT32 listen(INT32 sd, INT32 backlog);
 // Make hostname a const char pointer because it isn't modified and the Adafruit
 // driver code needs it to be const to interface with Arduino's client library.
 // Noted 12-12-2014 by tdicola
-extern INT16 gethostbyname(const CHAR *hostname, UINT16 usNameLen,
-                           UINT32 *out_ip_addr);
+/* 
+ * FOSSA: gethostbyname provided by adafruit has non standart
+ * signature, prefix it with cc3k_
+ */
+extern INT16 cc3k_gethostbyname(const CHAR *hostname, UINT16 usNameLen,
+                                UINT32 *out_ip_addr);
+
+extern struct hostent* gethostbyname(const char* name);
+
 #endif
 
 //*****************************************************************************
@@ -455,6 +497,13 @@ extern INT32 connect(INT32 sd, const sockaddr *addr, INT32 addrlen);
 //!  @sa socket
 //
 //*****************************************************************************
+/* 
+ * FOSSA: select() provided by TI has non-standart behavior
+ * prefix it with cc3k_
+ */
+extern INT16 cc3k_select(INT32 nfds, fd_set *readsds, fd_set *writesds,
+                         fd_set *exceptsds, struct timeval *timeout);
+
 extern INT16 select(INT32 nfds, fd_set *readsds, fd_set *writesds,
                     fd_set *exceptsds, struct timeval *timeout);
 
@@ -510,10 +559,14 @@ extern INT16 select(INT32 nfds, fd_set *readsds, fd_set *writesds,
 //!  @sa getsockopt
 //
 //*****************************************************************************
-#ifndef CC3000_TINY_DRIVER
+/*
+ * FOSSA: setsockopt() provided by Adafruit has non-standart behavior
+ * prefix it with cc3k_
+ */
+extern INT16 cc3k_setsockopt(INT32 sd, INT32 level, INT32 optname,
+                             const void *optval, socklen_t optlen);
 extern INT16 setsockopt(INT32 sd, INT32 level, INT32 optname,
-                        const void *optval, socklen_t optlen);
-#endif
+                               const void *optval, socklen_t optlen);
 //*****************************************************************************
 //
 //! getsockopt
@@ -567,9 +620,14 @@ extern INT16 setsockopt(INT32 sd, INT32 level, INT32 optname,
 //!  @sa setsockopt
 //
 //*****************************************************************************
+/*
+* FOSSA: setsockopt() provided by Adafruit has non-standart behavior
+* prefix it with cc3k_
+*/
+extern INT16 cc3k_getsockopt(INT32 sd, INT32 level, INT32 optname, void *optval,
+                             socklen_t *optlen);
 extern INT16 getsockopt(INT32 sd, INT32 level, INT32 optname, void *optval,
                         socklen_t *optlen);
-
 //*****************************************************************************
 //
 //!  recv
@@ -710,6 +768,14 @@ extern INT16 mdnsAdvertiser(UINT16 mdnsEnabled, CHAR *deviceServiceName,
 //
 //*****************************************************************************
 extern UINT16 getmssvalue(INT32 sd);
+
+/* FOSSA requires additional functions */
+int fcntl(INT32 fd, int cmd, uint32_t arg); /* Not-BSD (but Fossa) */
+char* inet_ntoa(struct in_addr in);
+const char* inet_ntop(int af, const void* src, char* dst, socklen_t size);
+int getsockname(INT32 s, struct sockaddr* name, socklen_t* namelen);
+int getpeername(INT32 s, struct sockaddr* name, socklen_t* namelen);
+void init_sockets_buffer();
 
 //*****************************************************************************
 //

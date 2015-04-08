@@ -5,6 +5,9 @@
 *
 * Adapted for use with the Arduino/AVR by KTOWN (Kevin Townsend)
 * & Limor Fried for Adafruit Industries
+*
+* Adapted for use with fossa network library be Cesanta (www.cesanta.com)
+*
 * This library works with the Adafruit CC3000 breakout
 *	----> https://www.adafruit.com/products/1469
 * Adafruit invests time and resources providing this open source code,
@@ -170,6 +173,16 @@ extern "C" {
 #define CC3000_TX_BUFFER_SIZE (TINY_CC3000_MAXIMAL_TX_SIZE)
 
 #endif
+
+/* 
+ * FOSSA: minimal buffer is too small for fossa
+ * TODO(alashkin): add splitting to send()
+ */
+#undef CC3000_RX_BUFFER_SIZE
+#undef CC3000_TX_BUFFER_SIZE
+
+#define CC3000_RX_BUFFER_SIZE   (CC3000_MAXIMAL_RX_SIZE)
+#define CC3000_TX_BUFFER_SIZE   (CC3000_MAXIMAL_TX_SIZE)
 
 //*****************************************************************************
 //                  Compound Types
